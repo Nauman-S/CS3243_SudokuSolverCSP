@@ -3,9 +3,37 @@
 
 import sys
 import copy
+import heapq
 
 # Running script: given code can be run with the command:
 # python file.py, ./path/to/init_state.txt ./output/output.txt
+
+
+# The class varaible represents a cell in the Sudoku class, each varaible can take a value from 1 to 10
+
+class Variable(object):
+    def __init__(self,row,col,value = 0):
+        self.row = row
+        self.col = col
+        self.domain = set(range(1,10)) #The domain of each variable is a set of values from 1 - 9 initially
+        self.value = value #The value assigned to the variable
+
+    #Returns the number of Remaining Values possible for the variable
+    def remainingValue(self):
+        return len(self.domain)
+
+    def __lt__ (self,other):
+        return self.remainingValue() < other.remainingValue()
+
+
+class CSP(object):
+    def __init__(self,puzzle):
+        self.variables = [Variable(row_number,col_number,item) for row_number,row in enumerate(puzzle) for col_number,item in enumerate(row) if item == 0]
+        heapq.heapify(self.variables) #Arrange the variables based on minimum-Remaining-Value
+
+    def backTrackingSearch(self):
+        while ()
+
 
 class Sudoku(object):
     def __init__(self, puzzle):
@@ -14,15 +42,40 @@ class Sudoku(object):
         self.ans = copy.deepcopy(puzzle) # self.ans is a list of lists
 
     def solve(self):
-        # TODO: Write your code here
-        
-        # self.ans is a list of lists
+
+        self.checkComplete(self.ans)
+        self.checkValid(self.ans)
         return self.ans
+
+
+
+
 
     # you may add more classes/functions if you think is useful
     # However, ensure all the classes/functions are in this file ONLY
     # Note that our evaluation scripts only call the solve method.
     # Any other methods that you write should be used within the solve() method.
+
+    # Helper method to check if the puzzle is complete
+    def checkComplete(self,puzzle):
+        for row in range(len(puzzle)):
+            for col in range(len(puzzle[row])):
+                if puzzle[row][col] > 9 or puzzle[row][col] < 1:
+                    print("row: " + str(row) + ", col: " + str(col) + "has invalid value " + str(puzzle[row][col]))
+
+    def checkValid(self,puzzle):
+        self.isValidRow(puzzle,True) #check valid rows
+        self.isValidRow([[puzzle[j][i] for j in range(len(puzzle))] for i in range(len(puzzle[0]))],False)#check valid columns
+
+
+    def isValidRow(self,puzzle,isRow):
+        for row in range(len(puzzle)):
+            if (sum(puzzle[row]) != 45):
+                if isRow:
+                    print("invalid row " + str(row))
+                else:
+                    print("invalid col " + str(row))
+
 
 if __name__ == "__main__":
     # STRICTLY do NOT modify the code in the main function here
