@@ -22,19 +22,179 @@ class Variable(object):
     def remainingValue(self):
         return len(self.domain)
 
+    #Compare variables based on the Remaining values they have left 
     def __lt__ (self,other):
         return self.remainingValue() < other.remainingValue()
+
+    def __str__ (self):
+        return "row = {}, col = {}, val = {} , domain = {}".format(self.row,self.col,self.value,self.domain)
 
 
 class CSP(object):
     def __init__(self,puzzle):
-        self.variables = [Variable(row_number,col_number,item) for row_number,row in enumerate(puzzle) for col_number,item in enumerate(row) if item == 0]
-        heapq.heapify(self.variables) #Arrange the variables based on minimum-Remaining-Value
+        #self.variables = [Variable(row_number,col_number,item) for row_number,row in enumerate(puzzle) for col_number,item in enumerate(row) if item == 0]
+        #heapq.heapify(self.variables) #Arrange the variables based on minimum-Remaining-Value
+        self.assignments = {}  
+        self.puzzle = puzzle
+        self.unassigned = 0
+
+        # a list of all variables
+        self.variables = []
+
+    def initialize (self):
+
+        for row_number, row in enumerate(puzzle):
+            for col_number, item in enumerate(row):
+                var = Variable(row_number,col_number)
+                if item != 0: 
+                    var.value = item
+                    var.domain=set()
+                if item ==0:
+                    self.unassigned+=1
+                self.assignments[(row_number,col_number)] = var
+                self.variables.append(var)
+        heapq.heapify(self.variables)
+
+
+    def least_constraining_value (self,var):
+        lim = 25 # At most the value can constrain the row col and grid which is 8 + 8 + 8 =24
+        lcv = None
+        for val in var.domain:
+            counter = 0
+            #Checking col constraints
+            for row in range(0,9):
+                if row != var.row:
+                        var_neighbour= self.assignments[(row,var.col)]
+                        if val in var_neighbour.domain and var_neighbour.value==0:
+                            counter +=1
+
+            #Checking row constraints
+            for col in range(0,9):
+                if col != var.col:
+                    var_neighbour= self.assignments[(var.row,col)]
+                    if val in var_neighbour.domain and var_neighbour.value==0:
+                        counter +=1
+            #Checking grid constraints
+            grid_row_number= (var.row//3) * 3
+            grid_col_number= (var.col//3) * 3
+            for row in range(grid_row_number,grid_row_number+3):
+                if row == var.row:
+                    continue
+                for col in range(grid_col_number,grid_col_number+3):
+                    if col == var.col:
+                        continue
+                    var_neighbour= self.assignments[(row,col)]
+                    if val in var_neighbour.domain and var_neighbour.value==0:
+                        counter  +=1
+
+            if counter < lim:
+                lim = counter
+                lcv = val
+        return lcv
+    
+
+    #This inference only does forward-checking
+    def inference(self,var,val,removed):
+        for row in range(0,9):
+            if row!=var.row:
+                var_neighbour= self.assignments[(row,var.col)]
+                if var_neighbour.value==0 and val in var_neighbour.domain:
+                    var_neighbour.domain.remove(val)
+                    removed[(var_neighbour.row,var_neighbour.col)] = val
+                    if len(var_neighbour.domain) == 0: #Domain wipeout
+                        return False
+
+        for col in range(0,9):
+            if col!=var.col:
+                var_neighbour = self.assignments[(var.row,col)]
+                if var_neighbour.value==0 and val in var_neighbour.domain:
+                    var_neighbour.domain.remove(val)
+                    removed[(var_neighbour.row,var_neighbour.col)] =val
+                    if len(var_neighbour.domain)==0:
+                        return False
+
+        #Checking grid constraints
+
+        grid_row_number= (var.row//3) * 3 #0
+        grid_col_number= (var.col//3) * 3 #0
+        for row in range(grid_row_number,grid_row_number+3):
+            if row == var.row:
+                continue
+            for col in range(grid_col_number,grid_col_number+3):
+                if col == var.col:
+                    continue
+                var_neighbour = self.assignments[(row,col)]
+                if var_neighbour.value==0 and val in var_neighbour.domain:
+                    var_neighbour.domain.remove(val)
+                    removed[(var_neighbour.row,var_neighbour.col)] = val
+                    if len(var_neighbour.domain)==0:
+                        return False
+
+        return True 
+
 
     def backTrackingSearch(self):
-        while ()
+        if self.unassigned == 0:
+            return self.assignments
+
+        var = heapq.heappop(self.variables) #Use MRV heuristic to select an variable
+
+        if var.value !=0:
+            #pre-assigned variable
+            if not self.inference(var,var.value,{}):
+                print("Not possiblw")
+            heapq.heapify(self.variables)
+            return self.backTrackingSearch()
+
+        var_values_checked = set()
+        while var.domain :
+            removed ={} # contains a set of coordinates (i,j) and the value removed from the domain due to inference
+            val = self.least_constraining_value(var)
+            var.value = val
+            var_values_checked.add(val)
+            var.domain.remove(val)
+
+            #Since we are doing inferences there is no need to check validity of the above assignment
+            if self.inference(var,val,removed):
+                self.unassigned -= 1
+                heapq.heapify(self.variables)
+                output = self.backTrackingSearch()
+                if output!=None:
+                    return output
 
 
+            #failure down the current path
+
+            #add back all the removed stuff for the other variables who we inferred for
+            for coordinates, values in removed.items():
+                row,col = coordinates
+                self.assignments[(row,col)].domain.add(values)
+
+        #Failure before current path was even taken
+        #Add all the stuff back for the current variable
+        var.domain.update(var_values_checked)
+        #Make it unassigned again
+        var.value = 0
+        self.unassigned += 1
+
+        #put the variable back into the heapq
+        heapq.heappush(self.variables,var)
+
+        return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+# If in the output file = input file means no valid assignments were found
 class Sudoku(object):
     def __init__(self, puzzle):
         # you may add more attributes if you need
@@ -42,11 +202,16 @@ class Sudoku(object):
         self.ans = copy.deepcopy(puzzle) # self.ans is a list of lists
 
     def solve(self):
-
-        self.checkComplete(self.ans)
-        self.checkValid(self.ans)
+        csp = CSP(puzzle)
+        csp.initialize()
+        assignments = csp.backTrackingSearch()
+        if assignments!=None:
+            #There exists a valid solution, make those assignments in the ans 
+            for row in range(0,9):
+                for col in range(0,9):
+                    if self.ans[row][col] == 0:
+                        self.ans[row][col] = assignments[(row,col)].value
         return self.ans
-
 
 
 
